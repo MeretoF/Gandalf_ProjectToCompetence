@@ -1,7 +1,8 @@
 const http = require('http');
 const date = require('./dateModule.js');
-const hostname = '127.0.0.1';
 const port = 3000;
+const dotenv = require('dotenv');
+dotenv.config();
 
 const express = require('express')
 const app = express()
@@ -23,11 +24,13 @@ app.use(cors({
 var mysql = require('mysql2');
 const { getCipherInfo } = require('crypto');
 
+console.log(process.env);
+
 var con = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "root",
-  database: "mydb"
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
 con.connect(function(err) {
@@ -41,7 +44,7 @@ app.get('/hello', (req, res) => {
     res.send("The date and time are currently: " + date.myDateTime())
     })
 
-    
+
     //Routes
 app.get('/competence', async (req, res) => {
         try{
@@ -52,7 +55,7 @@ app.get('/competence', async (req, res) => {
             res.send(err);
         }
     })
-    
+
 app.get('/project', async (req, res) => {
         try{
             const [rows, fields] = await con.promise().query("SELECT * FROM project");
@@ -62,7 +65,7 @@ app.get('/project', async (req, res) => {
             res.send(err);
         }
     })
-    
+
 app.get('/projtocomp', async (req, res) => {
         try{
             const [rows, fields] = await con.promise().query("SELECT * FROM projectstocompetence");
@@ -73,7 +76,7 @@ app.get('/projtocomp', async (req, res) => {
         }
     })
 
-    
+
 //get project to competence by project id
 app.get('/projtocomp/:id', async (req, res) => {
         try{

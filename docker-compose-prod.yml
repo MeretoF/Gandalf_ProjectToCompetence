@@ -1,0 +1,143 @@
+version: '3.9'
+services:
+  lumhub:
+    container_name: LumHub-APP
+    build:
+      context: ./APP/LumHub
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - nginx
+    expose:
+        - "3000"
+    labels:
+        - "group=webapp"
+        - "security=high"
+
+  account-database:
+    container_name: Account-Database
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=account
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: pg_isready -U ${DB_USER} -d account
+      timeout: 10s
+      interval: 3s
+      start_period: 5s
+      retries: 10
+    networks:
+      - database-services
+    labels:
+      - "service=account"
+      - "group=database-microservices"
+      - "security=high"
+
+  account:
+    container_name: Account-API
+    build:
+      context: ./API/Account
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DB_HOST=account-database
+      - DB_PORT=5432
+      - DB_NAME=account
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      account-database:
+        condition: service_healthy
+    networks:
+      - database-services
+      - nginx
+    expose:
+      - "5000"
+    labels:
+      - "service=account"
+      - "group=api-microservices"
+      - "security=high"
+
+  nginx-http:
+    container_name: Server-NGINX-HTTP
+    image: nginx:alpine
+    restart: unless-stopped
+    configs:
+      - source: nginx-http
+        target: /etc/nginx/conf.d/default.conf
+    volumes:
+      - ./docker/prod/certbot/data/:/var/www/certbot/:ro
+      - ./docker/prod/certbot/conf/:/etc/nginx/ssl/:ro
+    ports:
+      - "80:80"
+    networks:
+      - nginx
+      - monitoring
+    labels:
+      - "group=reverse-proxy"
+      - "security=high"
+
+  certbot:
+    container_name: Server-Certbot
+    image: certbot/certbot
+    volumes:
+      - ./docker/prod/certbot/data/:/var/www/certbot/:rw
+      - ./docker/prod/certbot/conf/:/etc/letsencrypt/:rw
+    command: certonly --reinstall --webroot --webroot-path=/var/www/certbot --email ${EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+    networks:
+      - nginx
+    depends_on:
+      nginx-http:
+        condition: service_started
+    labels:
+      - "group=reverse-proxy"
+      - "security=low"
+
+  nginx-https:
+    container_name: Server-NGINX-HTTPS
+    image: nginx:alpine
+    restart: unless-stopped
+    configs:
+      - source: nginx-https
+        target: /etc/nginx/conf.d/default.conf
+    volumes:
+      - ./docker/prod/certbot/data/:/var/www/certbot/:ro
+      - ./docker/prod/certbot/conf/:/etc/nginx/ssl/:ro
+    ports:
+      - "443:443"
+    links:
+      - account
+      - grafana
+    networks:
+      - nginx
+    depends_on:
+      lumhub:
+        condition: service_started
+      account:
+        condition: service_healthy
+      certbot:
+        condition: service_completed_successfully
+    labels:
+      - "group=reverse-proxy"
+      - "security=high"
+
+networks:
+  nginx:
+    driver: bridge
+  database-services:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+configs:
+  nginx-http:
+    file: docker/prod/nginx/nginx-http.conf
+  nginx-https:
+    file: docker/prod/nginx/nginx-https.conf
