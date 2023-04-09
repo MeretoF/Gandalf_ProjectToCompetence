@@ -6,18 +6,17 @@ services:
       context: ./app
       dockerfile: Dockerfile
     environment:
-      - NODE_ENV=production
+      - VITE_HOST_API=api
     networks:
       - nginx
-      - internal
     expose:
-      - "80"
-    labels:
-      - "group=webapp"
-      - "security=high"
+      - "8080"
+    depends_on:
+      api:
+        condition: service_healthy
 
   database:
-    container_name: Account-Database
+    container_name: Database
     image: mysql:latest
     restart: unless-stopped
     environment:
@@ -34,24 +33,20 @@ services:
       timeout: 10s
       interval: 3s
       start_period: 5s
-      retries: 10
+      retries: 15
     expose:
       - "3306"
     networks:
       - database-services
-    labels:
-      - "service=account"
-      - "group=database-microservices"
-      - "security=high"
 
   api:
-    container_name: Account-API
+    container_name: API
     build:
       context: ./api
       dockerfile: Dockerfile
     environment:
       - DB_HOST=database
-      - DB_NAME=account
+      - DB_NAME=mydb
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
@@ -59,16 +54,12 @@ services:
         condition: service_healthy
     networks:
       - database-services
-      - nginx
       - internal
+      - nginx
     links:
       - database
-    expose:
-      - "3000"
-    labels:
-      - "service=account"
-      - "group=api-microservices"
-      - "security=high"
+    ports:
+      - "3000:3000"
 
   nginx-http:
     container_name: Server-NGINX-HTTP

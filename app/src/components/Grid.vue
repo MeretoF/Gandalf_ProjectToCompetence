@@ -46,10 +46,10 @@
     </div>
   </div>
   </template>
-  
+
   <script lang="ts">
   import axios from 'axios';
-  
+
   interface Project {
     idProject: number;
     name: string;
@@ -94,7 +94,7 @@
         this.projId = this.projId.slice(0, -2);
         this.oToSend.compID = parseInt(this.compId);
         this.oToSend.projID = this.projId.split(',').map(Number);
-        axios.post('http://localhost:3000/projtocomp', {
+        axios.post(`${import.meta.env.VUE_HOST_API}:3000/projtocomp`, {
           compID: this.oToSend.compID,
           projID: this.oToSend.projID
         })
@@ -117,18 +117,19 @@
         this.comp.forEach((comp) => {
           if(comp.status == "OK" || comp.status == "Done")
             comp.status = "Done";
-          else 
+          else
             comp.status = "";
         });
       }
     },
     created() {
-      axios.get('http://localhost:3000/project')
+      console.log(import.meta.env);
+      axios.get(`${import.meta.env.VUE_HOST_API}:3000/project`)
         .then(response => {
           this.projects = response.data;
           console.log(this.projects);
         });
-      axios.get('http://localhost:3000/competence')
+      axios.get(`${import.meta.env.VUE_HOST_API}:3000/competence`)
         .then(response => {
           this.comp = response.data;
           console.log(this.comp);
@@ -136,7 +137,7 @@
     }
   };
   </script>
-  
+
   <style scoped>
   .flexRow {
     display: flex;
